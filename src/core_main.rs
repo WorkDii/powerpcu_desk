@@ -235,6 +235,10 @@ pub fn core_main() -> Option<CoreMainAction> {
         #[cfg(windows)]
         {
             use crate::platform;
+            #[cfg(feature = "powerpcu")]
+            if crate::powerpcu::is_shared_driver_command(&args[0]) {
+                return None;
+            }
             if args[0] == "--uninstall" {
                 if let Err(err) = platform::uninstall_me(true) {
                     log::error!("Failed to uninstall: {}", err);

@@ -142,8 +142,7 @@
 |---|---|---|---|
 | R1 | `src/common.rs` `load_custom_client()` | เรียก `powerpcu::apply()` แล้ว return | ฉีดค่าตาม 5.2 |
 | R2 | `src/platform/windows.rs` `get_license_from_exe_name()` (`:2212`) | คืน `Err` ทันที | ชื่อไฟล์แบบ `…host=…,key=…` หรือ env `RUSTDESK_APPNAME` ชนะค่าที่ล็อกไว้ (`bootstrap()`, `get_custom_rendezvous_server`, `get_key`, `get_api_server_`) จุดนี้จุดเดียวปิดได้ทุกทาง |
-| R3 | `src/platform/windows.rs` `install_me` (`:1790`) | shadow `install_remote_printer = String::new()` | กันไม่ให้สั่ง `--uninstall-remote-printer` ซึ่งจะลบ "RustDesk v4 Printer Driver" ที่ใช้ร่วมกัน |
-| R4 | `src/platform/windows.rs` สคริปต์ uninstall (`:1924`–`:1940`) | shadow `uninstall_printer_cmd`, `uninstall_cert_cmd` และ `uninstall_amyuni_idd` เป็นค่าว่าง | กันไม่ให้ลบไดรเวอร์ปริ้นเตอร์, ไดรเวอร์จอเสมือน (amyuni/usbmmidd) และใบรับรองทดสอบไดรเวอร์ระดับเครื่อง ที่ RustDesk ใช้อยู่ |
+| R3/R4 | `src/core_main.rs` ต้น chain คำสั่ง Windows (`if args[0] == "--uninstall"`) | ถ้า `powerpcu::is_shared_driver_command(args[0])` ให้ `return None` (คำสั่ง `--install-remote-printer`, `--uninstall-remote-printer`, `--uninstall-cert`, `--uninstall-amyuni-idd`, `--install-idd`) | สคริปต์ติดตั้ง/ถอน/อัปเดตเรียก exe ของเราเองด้วยคำสั่งเหล่านี้ ถ้าปล่อยไว้จะลบ "RustDesk v4 Printer Driver", ไดรเวอร์จอเสมือน (amyuni/usbmmidd) และใบรับรองทดสอบไดรเวอร์ระดับเครื่อง ที่ RustDesk ของผู้ใช้ใช้อยู่ จุดเดียวนี้ครอบทุกสคริปต์โดยไม่ต้องแก้ข้อความสคริปต์ |
 | R5 | `src/platform/windows.rs` `get_valid_subkey()` (`:1351`) | ข้ามการค้น `IS1` (GUID Inno Setup ของ RustDesk รุ่นเก่า) | ไม่อย่างนั้นบนเครื่องที่มี RustDesk แบบ Inno รุ่นเก่า PowerPCU จะเข้าใจว่าโฟลเดอร์ของ RustDesk เป็นของตัวเอง แล้วถอนผิดตัวได้ |
 | R6 | `src/updater.rs` `check_update()` (`:189`) | return `Ok(())` ทันที | กันอีกชั้นนอกจาก `allow-auto-update=N`: updater ดาวน์โหลดจาก `github.com/rustdesk` เท่านั้น ถ้าทำงานจะได้ RustDesk ตัวมาตรฐานทับ |
 | R7 | `src/server/connection.rs` arm `misc::Union::ChatMessage` (`:3966`) | ทิ้งข้อความ ไม่ส่งต่อไป CM | ตัด Chat ฝั่ง server (ไม่มีตัวเลือกให้ปิด) |
@@ -313,7 +312,7 @@ Box ดาวน์โหลด → powerpcu-remote-x86_64.exe (portable packer)
 | `Cargo.toml` (`[features]`), `src/lib.rs` (`mod`) | ประกาศ feature และโมดูล |
 | `libs/base/src/config/keys.rs` | ค่าคงที่ `OPTION_POWERPCU` (เป็นที่รวม option keys ตามกติกา repo) |
 | `src/common.rs` | R1 จุดฉีดค่า |
-| `src/platform/windows.rs` | R2–R5 จุดชนกับ RustDesk ของผู้ใช้ |
+| `src/platform/windows.rs`, `src/core_main.rs` | R2–R5 จุดชนกับ RustDesk ของผู้ใช้ |
 | `src/updater.rs` | R6 กันการอัปเดตทับ |
 | `src/server/connection.rs` | R7–R9 ตัด Chat/voice call/switch sides ฝั่ง server |
 | `src/virtual_display_manager.rs` | R10–R11 ปิดจอเสมือน และกันการถอดจอเสมือนของ RustDesk ผู้ใช้ |

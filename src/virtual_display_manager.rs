@@ -24,6 +24,9 @@ pub fn get_cur_device_string() -> &'static str {
 }
 
 pub fn is_virtual_display_supported() -> bool {
+    if cfg!(feature = "powerpcu") {
+        return false;
+    }
     #[cfg(target_os = "windows")]
     {
         is_windows_version_or_greater(10, 0, 19041, 0, 0)
@@ -122,6 +125,9 @@ pub fn plug_out_monitor_indices(
 }
 
 pub fn reset_all() -> ResultType<()> {
+    if cfg!(feature = "powerpcu") {
+        return Ok(());
+    }
     match IDD_IMPL {
         IDD_IMPL_RUSTDESK => rustdesk_idd::reset_all(),
         IDD_IMPL_AMYUNI => amyuni_idd::reset_all(),

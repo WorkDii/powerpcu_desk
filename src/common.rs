@@ -2515,6 +2515,7 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
     ThrottledInterval::new(i)
 }
 
+#[cfg_attr(feature = "powerpcu", allow(unreachable_code))]
 pub fn load_custom_client() {
     #[cfg(feature = "powerpcu")]
     {
