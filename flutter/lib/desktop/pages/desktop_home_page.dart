@@ -6,6 +6,7 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/common/powerpcu.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -91,7 +92,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       ),
       buildTip(context),
       if (!isOutgoingOnly) buildIDBoard(context),
-      if (!isOutgoingOnly) buildPasswordBoard(context),
+      if (!isOutgoingOnly && !isPowerPcuBuild()) buildPasswordBoard(context),
       FutureBuilder<Widget>(
         future: Future.value(
             Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
@@ -410,7 +411,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           SizedBox(
             height: 10.0,
           ),
-          if (!isOutgoingOnly)
+          if (!isOutgoingOnly && !isPowerPcuBuild())
             Text(
               translate("desk_tip"),
               overflow: TextOverflow.clip,
