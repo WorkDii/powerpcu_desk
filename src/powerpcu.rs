@@ -45,6 +45,9 @@ pub(crate) fn settings() -> Settings {
         overwrite: to_map(&[
             (keys::OPTION_CUSTOM_RENDEZVOUS_SERVER, RENDEZVOUS_SERVER),
             (keys::OPTION_KEY, KEY),
+            // Empty and locked: hbbs supplies the relay, and `--config` cannot set one.
+            (keys::OPTION_RELAY_SERVER, ""),
+            (keys::OPTION_API_SERVER, ""),
             (keys::OPTION_APPROVE_MODE, "click"),
             (keys::OPTION_VERIFICATION_METHOD, "use-temporary-password"),
             ("allow-hide-cm", "N"),
@@ -93,10 +96,12 @@ pub(crate) fn settings() -> Settings {
 
 // Stock RustDesk derives its ID from the MAC address, so on a shared relay it
 // would collide with the user's own RustDesk. The 10-digit range cannot meet a
-// MAC-derived ID (at most 0x1FFFFFFF) and is the same on every run.
-pub(crate) fn derive_id(machine_uuid: &[u8]) -> String {
+// MAC-derived ID (at most 0x1FFFFFFF). The MAC is mixed in because disk images
+// cloned without sysprep share the machine GUID.
+pub(crate) fn derive_id(machine_uuid: &[u8], mac: &[u8]) -> String {
     let digest = Sha256::new()
         .chain_update(machine_uuid)
+        .chain_update(mac)
         .chain_update(APP_NAME.as_bytes())
         .finalize();
     let mut head = [0u8; 8];
@@ -132,7 +137,12 @@ pub(crate) fn apply() {
         .extend(s.default_local);
     config::BUILTIN_SETTINGS.write().unwrap().extend(s.builtin);
     if needs_own_id(&config::Config::get_id()) {
-        config::Config::set_id(&derive_id(&hbb_common::get_uuid()));
+        let mac = hbb_common::mac_address::get_mac_address()
+            .ok()
+            .flatten()
+            .map(|m| m.bytes().to_vec())
+            .unwrap_or_default();
+        config::Config::set_id(&derive_id(&hbb_common::get_uuid(), &mac));
     }
 }
 
@@ -156,6 +166,8 @@ mod tests {
         assert_eq!(s.overwrite["verification-method"], "use-temporary-password");
         assert_eq!(s.overwrite["custom-rendezvous-server"], RENDEZVOUS_SERVER);
         assert_eq!(s.overwrite["key"], KEY);
+        assert_eq!(s.overwrite["relay-server"], "");
+        assert_eq!(s.overwrite["api-server"], "");
         assert_eq!(s.overwrite["access-mode"], "custom");
         assert_eq!(s.overwrite_local["allow-remote-cm-modification"], "N");
     }
@@ -205,10 +217,18 @@ mod tests {
 
     #[test]
     fn derived_id_is_stable_and_outside_mac_range() {
-        assert_eq!(derive_id(b"test-machine"), "1031630599");
-        assert_eq!(derive_id(b"other-machine"), "1427890610");
-        let id: u64 = derive_id(b"x").parse().unwrap();
+        assert_eq!(derive_id(b"test-machine", b""), "1031630599");
+        assert_eq!(derive_id(b"other-machine", b""), "1427890610");
+        let id: u64 = derive_id(b"x", b"").parse().unwrap();
         assert!((1_000_000_000..2_000_000_000).contains(&id));
+    }
+
+    #[test]
+    fn cloned_machine_guid_with_other_mac_gets_other_id() {
+        assert_ne!(
+            derive_id(b"cloned-guid", &[0x00, 0x15, 0x5d, 0x01, 0x02, 0x03]),
+            derive_id(b"cloned-guid", &[0x00, 0x15, 0x5d, 0x01, 0x02, 0x04])
+        );
     }
 
     #[test]
@@ -217,7 +237,7 @@ mod tests {
         assert!(needs_own_id(""));
         assert!(needs_own_id("DESKTOP-PC01"));
         assert!(!needs_own_id("1427890610"));
-        assert!(!needs_own_id(&derive_id(b"any-machine")));
+        assert!(!needs_own_id(&derive_id(b"any-machine", b"")));
     }
 
     #[test]

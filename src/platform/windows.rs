@@ -4210,6 +4210,9 @@ pub fn try_remove_temp_update_files() {
 
 #[inline]
 pub fn try_kill_broker() {
+    if cfg!(feature = "powerpcu") {
+        return;
+    }
     allow_err!(std::process::Command::new("cmd")
         .arg("/c")
         .arg(&format!(

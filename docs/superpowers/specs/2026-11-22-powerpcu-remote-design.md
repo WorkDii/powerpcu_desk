@@ -95,7 +95,7 @@
   hbbs จะรับทั้งสองตัวเพราะ IP เดียวกัน แล้วทีมอาจเชื่อมต่อไปโดน RustDesk ของผู้ใช้ ซึ่งอาจมีรหัสผ่านถาวรและไม่ต้องกดยอมรับ
   - ทางแก้: ใน `apply()` หลังตั้ง `APP_NAME` แล้ว ถ้า ID ปัจจุบัน**ไม่ใช่เลขในช่วง `1_000_000_000..2_000_000_000`** (`needs_own_id`) ให้ `Config::set_id(<ID ที่คำนวณ>)`
     (ตรวจ "ID ว่าง" ไม่ได้ เพราะ `Config::load()` เติม ID จาก MAC ให้ทันทีที่โหลด config ที่ยังไม่มี ID — `config.rs:774` — พบตอนทดสอบ build แรก)
-  - ID ที่คำนวณ: `sha256(hbb_common::get_uuid() ‖ "PowerPCU-Remote")` แปลงเป็นเลขในช่วง `1_000_000_000..2_000_000_000`
+  - ID ที่คำนวณ: `sha256(hbb_common::get_uuid() ‖ MAC ‖ "PowerPCU-Remote")` (ผสม MAC เพราะเครื่องที่โคลนดิสก์โดยไม่ sysprep มี machine GUID ซ้ำกัน; คำนวณครั้งแรกครั้งเดียวแล้วเก็บใน config) แปลงเป็นเลขในช่วง `1_000_000_000..2_000_000_000`
     - ช่วงนี้ไม่ทับกับ ID ที่ได้จาก MAC (ค่าสูงสุดคือ `0x1FFFFFFF` ≈ 5.4×10⁸)
     - ทุก process (UI/server/service) คำนวณได้ค่าเดียวกัน แข่งกันเขียนก็ไม่ขัดกัน
     - ติดตั้งใหม่หรือล้าง config บนเครื่องเดิมก็ได้ ID เดิม
@@ -112,6 +112,7 @@
 | HARD | `password`, `salt`, `disable-installation` | **ไม่ตั้ง** | ไม่มีรหัสผ่านถาวรที่ฝังไว้, ยังติดตั้งได้ |
 | OVERWRITE | `custom-rendezvous-server` | `rustdesk.powerpcu.com` | ล็อกเซิร์ฟเวอร์ (บันทึกทับไม่ได้) |
 | OVERWRITE | `key` | `Yl+eLj+8+MvlyMQcg117JyVvyy1ojHSGaY2+N7aYmO8=` | ล็อก key |
+| OVERWRITE | `relay-server`, `api-server` | `""` | ล็อกเป็นค่าว่าง: ใช้ relay ที่ hbbs ให้มา และ `--config` ตั้งค่าเองไม่ได้ |
 | OVERWRITE | `approve-mode` | `click` | รับได้ด้วยการกดเท่านั้น (`connection.rs:3078`) |
 | OVERWRITE | `verification-method` | `use-temporary-password` | ไม่มีการตรวจรหัสผ่านถาวรเลย (ป้องกันอีกชั้น) |
 | OVERWRITE | `allow-hide-cm` | `N` | หน้าต่างรับการเชื่อมต่อซ่อนไม่ได้ |
@@ -150,7 +151,8 @@
 | R8 | `src/server/connection.rs` arm `message::Union::VoiceCallRequest` (`:4142`) | ทิ้ง | ตัด voice call (ไม่มีตัวเลือกให้ปิด) |
 | R9 | `src/server/connection.rs` arm `misc::Union::SwitchSidesRequest` (`:4040`) | ทิ้ง | switch sides จะเปิด `--connect` ขาออก ซึ่งขัดกับโหมดรับอย่างเดียว |
 
-| R10 | `src/virtual_display_manager.rs` `is_virtual_display_supported()` (`:26`) | คืน `false` | ปิดจอเสมือนทั้งหมด: ฝั่งรีโมตเสียบจอเสมือนไม่ได้ (`connection.rs:4840` ตอบว่าไม่รองรับ) และไม่เสียบจอ headless อัตโนมัติ (`display_service.rs:989`) |
+| R10 | `src/virtual_display_manager.rs` `is_virtual_display_supported()` (`:26`), `plug_out_monitor()`, `get_platform_additions()` | คืน `false` / `Ok(())` / map ว่าง | ปิดจอเสมือนทั้งหมด: ฝั่งรีโมตเสียบจอเสมือนไม่ได้ (`connection.rs:4840` ตอบว่าไม่รองรับ), ถอดจอเสมือน amyuni ของ RustDesk ผู้ใช้ไม่ได้, ไม่โฆษณาเมนูจอเสมือนให้ฝั่งรีโมต และไม่เสียบจอ headless อัตโนมัติ (`display_service.rs:989`) |
+| R12 | `src/platform/windows.rs` `try_kill_broker()` | return ทันที | ทุกครั้งที่ server เริ่ม (`server.rs:737`) โค้ดเดิมสั่ง `taskkill RuntimeBroker_rustdesk.exe` ซึ่งจะปิด privacy mode ของ RustDesk ผู้ใช้; PowerPCU ไม่ใช้ broker (`enable-privacy-mode=N`) |
 | R11 | `src/virtual_display_manager.rs` `reset_all()` (`:124`) | คืน `Ok(())` ทันที | ตอนเซสชันสุดท้ายจบ (`connection.rs:7220`) โค้ดเดิมจะถอดจอเสมือน amyuni **ทุกจอในเครื่อง** รวมถึงจอที่ RustDesk ของผู้ใช้กำลังใช้ |
 
 R7–R9 รับข้อความที่ peer ควบคุมจังหวะได้ ถ้าจะ log ให้ใช้ `log::trace!` เท่านั้น
@@ -271,7 +273,7 @@ Box ดาวน์โหลด → powerpcu-remote-x86_64.exe (portable packer)
 ## 7. ข้อจำกัดที่ยอมรับ (Known limits)
 
 - **exe ไม่ได้เซ็น:** ถ้าเปิดจากไฟล์ที่ดาวน์โหลดผ่านเบราว์เซอร์ (มี Mark-of-the-Web) SmartScreen จะเตือน แต่การดาวน์โหลดโดย Box/Launcher ไม่ติดเครื่องหมายนี้
-- **Portable packer:** สั่ง `taskkill RuntimeBroker_rustdesk.exe` ตอนแตกไฟล์ครั้งแรก และสคริปต์ติดตั้ง/ถอนก็มีบรรทัดเดียวกัน ผลคือ privacy mode ของ RustDesk ผู้ใช้หลุด *ถ้ากำลังใช้งานอยู่ตอนนั้นพอดี* การแก้ต้องเพิ่ม feature ให้ crate packer จึงยังไม่ทำ
+- **Portable packer:** สั่ง `taskkill RuntimeBroker_rustdesk.exe` ตอนแตกไฟล์ครั้งแรก และสคริปต์ติดตั้ง/ถอนก็มีบรรทัดเดียวกัน (ส่วนที่เกิดทุกครั้งที่ server เริ่มปิดแล้วด้วย R12) ผลคือ privacy mode ของ RustDesk ผู้ใช้หลุด *ถ้ากำลังใช้งานอยู่ตอนนั้นพอดี* การแก้ต้องเพิ่ม feature ให้ crate packer จึงยังไม่ทำ
 - **ไฟล์ temp ที่ขึ้นต้น `rustdesk-*.exe` และเก่ากว่า 1 ชั่วโมงจะถูกลบ** (เป็นไฟล์ชั่วคราวของ RustDesk เอง ไม่มีผลต่อการใช้งาน)
 - **ตอนล็อกจอ/ยังไม่มีใคร login:** ฝั่งรีโมตจะรอ 180 วินาทีก่อนหลุด แทนที่จะถูกปฏิเสธทันที
 - **IPv6 probe ใช้ STUN สาธารณะที่ hard-code ไว้ (Cloudflare/Google)** แค่หา IP สาธารณะ ไม่มีข้อมูลเซสชันผ่าน
@@ -317,6 +319,7 @@ Box ดาวน์โหลด → powerpcu-remote-x86_64.exe (portable packer)
 | `src/updater.rs` | R6 กันการอัปเดตทับ |
 | `src/server/connection.rs` | R7–R9 ตัด Chat/voice call/switch sides ฝั่ง server |
 | `src/virtual_display_manager.rs` | R10–R11 ปิดจอเสมือน และกันการถอดจอเสมือนของ RustDesk ผู้ใช้ |
+| `src/platform/windows.rs` (`try_kill_broker`) | R12 ไม่ปิด privacy-mode broker ของ RustDesk ผู้ใช้ |
 | `flutter/lib/desktop/pages/desktop_home_page.dart`, `server_page.dart`, `desktop_setting_page.dart`, ไฟล์ค่าคงที่ option ฝั่ง Dart | D1–D3 ซ่อน UI |
 
 ไฟล์ใหม่: `src/powerpcu.rs`, `flutter/lib/common/powerpcu.dart`, `res/powerpcu/**`, `.github/workflows/powerpcu-remote.yml`, เอกสารนี้
@@ -324,7 +327,7 @@ Box ดาวน์โหลด → powerpcu-remote-x86_64.exe (portable packer)
 
 ## 12. ข้อที่ผู้ออกแบบตัดสินเอง (ขอให้เจ้าของตรวจ)
 
-1. ID ของ PowerPCU Remote คำนวณจากรหัสเครื่อง ได้เลข 10 หลักคงที่ต่อเครื่อง (5.2)
+1. ID ของ PowerPCU Remote คำนวณจากรหัสเครื่อง + MAC ได้เลข 10 หลักคงที่ต่อเครื่อง (5.2)
 2. ปิดเสียงและจอเสมือนด้วย เพราะไม่อยู่ในรายการ "เก็บไว้" (5.2, R10–R11)
 3. ภาษาเริ่มต้นเป็นไทย ผู้ใช้เปลี่ยนเองได้
 4. ไม่ส่ง heartbeat/sysinfo ไป API (`register-device=N`) เพราะ hbbs ฉบับ OSS ไม่มี API

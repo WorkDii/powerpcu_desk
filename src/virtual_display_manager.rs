@@ -47,6 +47,9 @@ pub fn plug_in_headless() -> ResultType<()> {
 
 pub fn get_platform_additions() -> serde_json::Map<String, serde_json::Value> {
     let mut map = serde_json::Map::new();
+    if cfg!(feature = "powerpcu") {
+        return map;
+    }
     if !crate::platform::windows::is_self_service_running() {
         return map;
     }
@@ -82,6 +85,9 @@ pub fn plug_in_monitor(idx: u32, modes: Vec<virtual_display::MonitorMode>) -> Re
 }
 
 pub fn plug_out_monitor(index: i32, force_all: bool, force_one: bool) -> ResultType<()> {
+    if cfg!(feature = "powerpcu") {
+        return Ok(());
+    }
     match IDD_IMPL {
         IDD_IMPL_RUSTDESK => {
             let indices = if index == IDD_PLUG_OUT_ALL_INDEX {

@@ -29,7 +29,7 @@
 
 ## Review Focus
 
-1. **An existing user config or a stock RustDesk on the same relay.** PowerPCU must never present the user's RustDesk ID. Seeding runs only when our own config has no ID; check `apply()` order (APP_NAME before any `Config` access).
+1. **An existing user config or a stock RustDesk on the same relay.** PowerPCU must never present the user's RustDesk ID. Any ID outside 1_000_000_000..2_000_000_000 (e.g. the MAC ID `Config::load()` fills in) is replaced; check `apply()` order (APP_NAME before any `Config` access).
 2. **The exe renamed to `…host=x,key=y….exe`, or `RUSTDESK_APPNAME` set.** It must still use `rustdesk.powerpcu.com` (R2). Covered by the manual checklist; R2 is a one-line early return.
 3. **Uninstall or install scripts calling our exe with shared-driver commands.** These must be no-ops. Pinned by the `is_shared_driver_command` unit test (Task 1) plus the core_main hook (Task 2).
 4. **A peer that keeps sending chat, voice-call or switch-sides messages.** They are dropped with no log above `trace` and no CM traffic (Task 3).

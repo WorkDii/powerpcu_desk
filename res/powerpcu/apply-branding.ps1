@@ -25,6 +25,7 @@ $edits = @(
             , @('ProductName = "RustDesk"', 'ProductName = "PowerPCU Remote"')
             , @('OriginalFilename = "rustdesk.exe"', 'OriginalFilename = "powerpcu-remote-x86_64.exe"')
             , @('FileDescription = "RustDesk Remote Desktop"', 'FileDescription = "PowerPCU Remote"')
+            , @('All rights reserved."', 'All rights reserved. Modified by WorkDii (AGPL-3.0)."')
         )
     }
 )
