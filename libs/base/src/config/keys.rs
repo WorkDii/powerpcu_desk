@@ -127,6 +127,7 @@ pub const OPTION_HIDE_ACCOUNT_PASSWORD_LOGIN: &str = "hide-account-password-logi
 pub const OPTION_QUIT_BUTTON_TEXT: &str = "quit-button-text";
 pub const OPTION_ALLOW_COMMAND_LINE_SETTINGS_WHEN_SETTINGS_DISABLED: &str =
     "allow-command-line-settings-when-settings-disabled";
+pub const OPTION_POWERPCU: &str = "powerpcu";
 
 // Connection punch-through / port-forward options
 pub const OPTION_ENABLE_TCP_PUNCH: &str = "enable-tcp-punch";
