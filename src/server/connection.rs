@@ -3964,6 +3964,9 @@ impl Connection {
                         }
                     }
                     Some(misc::Union::ChatMessage(c)) => {
+                        if cfg!(feature = "powerpcu") {
+                            return true;
+                        }
                         self.send_to_cm(ipc::Data::ChatMessage { text: c.text });
                         self.chat_unanswered = true;
                         self.update_auto_disconnect_timer();
@@ -4040,6 +4043,9 @@ impl Connection {
                     #[cfg(feature = "flutter")]
                     #[cfg(not(any(target_os = "android", target_os = "ios")))]
                     Some(misc::Union::SwitchSidesRequest(s)) => {
+                        if cfg!(feature = "powerpcu") {
+                            return true;
+                        }
                         if let Ok(uuid) = uuid::Uuid::from_slice(&s.uuid.to_vec()[..]) {
                             if crate::server::insert_pending_switch_sides_uuid(
                                 self.lr.my_id.clone(),
@@ -4140,6 +4146,9 @@ impl Connection {
                     }
                 }
                 Some(message::Union::VoiceCallRequest(request)) => {
+                    if cfg!(feature = "powerpcu") {
+                        return true;
+                    }
                     if request.is_connect {
                         self.voice_call_request_timestamp = Some(
                             NonZeroI64::new(request.req_timestamp)
