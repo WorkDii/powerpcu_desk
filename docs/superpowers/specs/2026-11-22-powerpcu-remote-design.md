@@ -175,7 +175,7 @@ R7–R9 รับข้อความที่ peer ควบคุมจัง
   เส้น ECG สีขาวจากพิกัดใน `powerpcu/web/public/favicon.svg` ขยับขึ้นซ้ายตามต้นแบบ
   `M3.6 11.4 H8 L9.5 7.1 L11.5 15.8 L13.4 11.4 H17.5`, ป้ายวงกลม `#10b981` ที่ (17.8,17.8) r≈5.4 และลูกศรเคอร์เซอร์สีขาว)
   กับ `res/powerpcu/logo-small.svg` สำหรับ ≤24px (เส้นหนาขึ้น เช่น stroke 2.1, ป้าย r≈5.6) และ `res/powerpcu/wordmark.svg`
-  (ไอคอน + ตัวอักษร "PowerPCU Remote" ที่แปลงเป็น path แล้ว สำหรับโลโก้หน้าแรก)
+  (ไอคอน + ตัวอักษร "PowerPCU Remote" ด้วยฟอนต์ Segoe UI สำหรับโลโก้หน้าแรก; commit ไฟล์ PNG ที่ render แล้ว CI จึงไม่ขึ้นกับฟอนต์)
 - **สคริปต์สร้างไฟล์ (commit):** `res/powerpcu/gen-icons.mjs` ใช้ Node + `@resvg/resvg-js` + `png-to-ico` (ลงใน scratch ตอนรัน ไม่เพิ่มเป็น dependency ของ repo)
   แล้ว commit ไฟล์ผลลัพธ์ทั้งหมดใน `res/powerpcu/out/` เพื่อให้ CI ไม่ต้องใช้ Node
 - **ไฟล์ผลลัพธ์และที่ใช้:**
@@ -189,7 +189,8 @@ R7–R9 รับข้อความที่ peer ควบคุมจัง
 | `assets-icon.png` | 256 | `flutter/assets/icon.png` | tray, `loadIcon()` |
 | `icon.svg` | — | `flutter/assets/icon.svg` | `loadIcon()` fallback |
 | `logo.png` | ≤600×120 (แสดง ≤300×60) | `flutter/assets/logo.png` | โลโก้หน้าแรก |
-| `label.png` | 96×32 | `libs/portable/src/res/label.png` | splash ตอนแตกไฟล์ |
+
+(`libs/portable/src/res/label.png` เป็นแค่คำว่า "Loading..." ไม่มีแบรนด์ จึงไม่เปลี่ยน)
 
 - **สคริปต์ใส่แบรนด์ตอน build:** `res/powerpcu/apply-branding.ps1` (CI รัน, นักพัฒนารันเองได้)
   คัดลอกไฟล์ตามตาราง แล้วแก้ข้อความ version resource ใน `flutter/windows/runner/Runner.rc`
@@ -247,8 +248,8 @@ Box ดาวน์โหลด → powerpcu-remote-x86_64.exe (portable packer)
 ## 6. การทดสอบและการยืนยันผล
 
 - **Rust unit tests** (`#[cfg(test)]` ใน `src/powerpcu.rs`) ประกาศโมดูลด้วย `#[cfg(any(feature = "powerpcu", test))]`
-  ส่วน `apply()` ที่เขียน global ให้ครอบด้วย `#[cfg(feature = "powerpcu")]` อย่างเดียว ผลคือเทสต์ของฟังก์ชันบริสุทธิ์ถูกรันใน
-  `cargo test --workspace` ของ CI เดิมด้วย ตามกติกาใน `AGENTS.md`:
+  ส่วน `apply()` ที่เขียน global ให้ครอบด้วย `#[cfg(feature = "powerpcu")]` อย่างเดียว ตามกติกาใน `AGENTS.md`
+  เทสต์ถูกรันใน workflow `powerpcu-remote.yml` (CI เดิมของ RustDesk ถูกปิดบน fork ตามข้อ 9) และจะรันใน `cargo test --workspace` เองถ้าเปิด CI เดิมกลับมา:
   - ฟังก์ชันคำนวณ ID ให้ค่าคงที่สำหรับ uuid เดียวกัน อยู่ในช่วง `1_000_000_000..2_000_000_000` และต่างกันเมื่อ uuid ต่างกัน
   - `APP_NAME` มีแต่อักขระ `[A-Za-z0-9_-]` (กติกาเดียวกับ `validate_install_app_name` ซึ่งเป็น private) และตรงกับ stem ของ `powerpcu-remote.exe` เมื่อไม่สนตัวพิมพ์
   - มี `conn-type=incoming`, `approve-mode=click`
