@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="120" viewBox="0 0 600 120">
+  <g transform="translate(8 12) scale(4)">
+    <rect width="24" height="24" rx="5" fill="#004c28"/>
+    <path d="M3.6 11.4 H8 L9.5 7.1 L11.5 15.8 L13.4 11.4 H17.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="17.8" cy="17.8" r="5.4" fill="#10b981"/>
+    <path d="M16.1 15.3 L16.5 20.1 L17.9 18.7 L19.5 20.5 L20.5 19.6 L18.9 17.8 L20.7 17.5 Z" fill="#fff"/>
+  </g>
+  <text id="wordmark-text" x="122" y="78" font-family="Segoe UI, sans-serif" font-weight="600" font-size="52" fill="#004c28">PowerPCU Remote</text>
+</svg>
