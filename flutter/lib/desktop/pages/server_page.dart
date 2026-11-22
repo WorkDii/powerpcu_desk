@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/common/powerpcu.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
@@ -558,7 +559,8 @@ class _CmHeaderState extends State<_CmHeader>
             offstage: !client.authorized ||
                 (client.type_() != ClientType.remote &&
                     client.type_() != ClientType.file &&
-                    client.type_() != ClientType.camera),
+                    client.type_() != ClientType.camera) ||
+                (isPowerPcuBuild() && client.type_() != ClientType.file),
             child: IconButton(
               onPressed: () => checkClickTime(client.id, () {
                 if (client.type_() == ClientType.file) {
@@ -761,6 +763,7 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
                         translate('Enable clipboard'),
                         canModify: canModifyPermission,
                       ),
+                      if (!isPowerPcuBuild())
                       buildPermissionIcon(
                         client.audio,
                         Icons.volume_up_rounded,
@@ -791,6 +794,7 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
                         translate('Enable file copy and paste'),
                         canModify: canModifyPermission,
                       ),
+                      if (!isPowerPcuBuild())
                       buildPermissionIcon(
                         client.restart,
                         Icons.restart_alt_rounded,
@@ -806,6 +810,7 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
                         translate('Enable remote restart'),
                         canModify: canModifyPermission,
                       ),
+                      if (!isPowerPcuBuild())
                       buildPermissionIcon(
                         client.recording,
                         Icons.videocam_rounded,
@@ -822,7 +827,7 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
                         canModify: canModifyPermission,
                       ),
                       // only windows support block input
-                      if (isWindows)
+                      if (isWindows && !isPowerPcuBuild())
                         buildPermissionIcon(
                           client.blockInput,
                           Icons.block,
@@ -838,7 +843,8 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
                           translate('Enable blocking user input'),
                           canModify: canModifyPermission,
                         ),
-                      if (bind.mainSupportedPrivacyModeImpls() != '[]')
+                      if (bind.mainSupportedPrivacyModeImpls() != '[]' &&
+                          !isPowerPcuBuild())
                         buildPermissionIcon(
                           client.privacyMode,
                           Icons.visibility_off,

@@ -1355,11 +1355,15 @@ fn get_valid_subkey() -> String {
     if !get_reg_of(&subkey, "InstallLocation").is_empty() {
         return subkey;
     }
+    #[cfg(not(feature = "powerpcu"))]
     let subkey = get_subkey(IS1, false);
+    #[cfg(not(feature = "powerpcu"))]
     if !get_reg_of(&subkey, "InstallLocation").is_empty() {
         return subkey;
     }
+    #[cfg(not(feature = "powerpcu"))]
     let subkey = get_subkey(IS1, true);
+    #[cfg(not(feature = "powerpcu"))]
     if !get_reg_of(&subkey, "InstallLocation").is_empty() {
         return subkey;
     }
@@ -2210,6 +2214,9 @@ pub fn prepare_custom_client_update() -> ResultType<bool> {
 }
 
 pub fn get_license_from_exe_name() -> ResultType<CustomServer> {
+    if cfg!(feature = "powerpcu") {
+        bail!("exe-name license is disabled in this build");
+    }
     let mut exe = std::env::current_exe()?.to_str().unwrap_or("").to_owned();
     // if defined portable appname entry, replace original executable name with it.
     if let Ok(portable_exe) = std::env::var(PORTABLE_APPNAME_RUNTIME_ENV_KEY) {
@@ -4203,6 +4210,9 @@ pub fn try_remove_temp_update_files() {
 
 #[inline]
 pub fn try_kill_broker() {
+    if cfg!(feature = "powerpcu") {
+        return;
+    }
     allow_err!(std::process::Command::new("cmd")
         .arg("/c")
         .arg(&format!(

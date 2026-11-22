@@ -78,3 +78,5 @@ pub mod privacy_mode;
 pub mod virtual_display_manager;
 
 mod kcp_stream;
+#[cfg(any(feature = "powerpcu", test))]
+mod powerpcu;

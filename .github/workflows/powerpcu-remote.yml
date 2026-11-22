@@ -1,0 +1,192 @@
+# PowerPCU Remote: the Windows x64 build of this fork, branded and locked by the
+# `powerpcu` cargo feature (src/powerpcu.rs). Toolchain steps mirror the x64 path of
+# `build-for-windows-flutter` in flutter-build.yml; keep them in step when upstream
+# bumps Flutter, LLVM or vcpkg. A `remote-v*` tag publishes a GitHub Release.
+name: PowerPCU Remote (Windows x64)
+
+on:
+  push:
+    tags:
+      - "remote-v*"
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: powerpcu-remote-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_VERSION: "1.75"
+  LLVM_VERSION: "15.0.6"
+  FLUTTER_VERSION: "3.24.5"
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
+  FEATURES: "flutter,hwcodec,vram,powerpcu"
+
+jobs:
+  generate-bridge:
+    uses: ./.github/workflows/bridge.yml
+
+  build:
+    name: Build powerpcu-remote-x86_64.exe
+    needs: [generate-bridge]
+    runs-on: windows-2022
+    steps:
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Checkout source code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          submodules: recursive
+
+      - name: Restore bridge files
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bridge-artifact
+          path: ./
+
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0 # v2.0.9
+        with:
+          version: ${{ env.LLVM_VERSION }}
+
+      - name: Install flutter
+        uses: subosito/flutter-action@2783a3f08e1baf891508463f8c6653c258246225 # v2.12.0
+        with:
+          channel: "stable"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          architecture: x64
+
+      # https://github.com/flutter/flutter/issues/155685
+      - name: Replace engine with rustdesk custom flutter engine
+        run: |
+          flutter doctor -v
+          flutter precache --windows
+          Invoke-WebRequest -Uri https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip -OutFile windows-x64-release.zip
+          Expand-Archive -Path windows-x64-release.zip -DestinationPath windows-x64-release
+          mv -Force windows-x64-release/*  C:/hostedtoolcache/windows/flutter/stable-${{ env.FLUTTER_VERSION }}-x64/bin/cache/artifacts/engine/windows-x64-release/
+
+      - name: Patch flutter
+        shell: bash
+        run: |
+          cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff $(dirname $(dirname $(which flutter)))
+          cd $(dirname $(dirname $(which flutter)))
+          if [[ "3.24.5" == ${{env.FLUTTER_VERSION}} ]]; then
+            git apply flutter_3.24.4_dropdown_menu_enableFilter.diff
+          fi
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: x86_64-pc-windows-msvc
+          components: "rustfmt"
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          prefix-key: powerpcu-windows-2022
+
+      - name: Setup vcpkg with Github Actions binary cache
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
+        with:
+          vcpkgDirectory: C:\vcpkg
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
+
+      - name: Install vcpkg dependencies
+        env:
+          VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
+        run: |
+          if ! $VCPKG_ROOT/vcpkg \
+            install \
+            --triplet x64-windows-static \
+            --x-install-root="$VCPKG_ROOT/installed"; then
+            find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
+              echo "$_1:"
+              echo "======"
+              cat "$_1"
+              echo "======"
+              echo ""
+            done
+            exit 1
+          fi
+        shell: bash
+
+      - name: Apply PowerPCU branding
+        run: pwsh -NoProfile -File res/powerpcu/apply-branding.ps1
+
+      - name: Build the Rust library
+        run: cargo build --locked --features ${{ env.FEATURES }} --lib --release
+
+      - name: Run the PowerPCU tests
+        run: cargo test --locked --release --lib --features ${{ env.FEATURES }} "powerpcu::"
+
+      - name: Build the Flutter app
+        run: |
+          python3 .\build.py --portable --flutter --hwcodec --vram --skip-cargo --skip-portable-pack
+          mv ./flutter/build/windows/x64/runner/Release ./powerpcu-remote
+          Rename-Item ./powerpcu-remote/rustdesk.exe powerpcu-remote.exe
+
+      - name: Pack the portable executable
+        shell: bash
+        run: |
+          sed -i '/dpiAware/d' res/manifest.xml
+          pushd ./libs/portable
+          pip3 install -r requirements.txt
+          python3 ./generate.py -f ../../powerpcu-remote/ -o . -e ../../powerpcu-remote/powerpcu-remote.exe
+          popd
+          mkdir -p dist
+          mv ./target/release/rustdesk-portable-packer.exe dist/powerpcu-remote-x86_64.exe
+          cd dist
+          sha256sum powerpcu-remote-x86_64.exe > powerpcu-remote-x86_64.exe.sha256
+          sha256sum -c powerpcu-remote-x86_64.exe.sha256
+          cat powerpcu-remote-x86_64.exe.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: powerpcu-remote-x86_64
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/remote-v')
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: powerpcu-remote-x86_64
+          path: dist
+
+      - name: Read checksum
+        id: sum
+        run: echo "sha256=$(cut -d' ' -f1 dist/powerpcu-remote-x86_64.exe.sha256)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          prerelease: false
+          files: dist/*
+          body: |
+            PowerPCU Remote for Windows x64 (portable; can install itself as the `PowerPCU-Remote` service).
+
+            SHA-256 (`powerpcu-remote-x86_64.exe`): `${{ steps.sum.outputs.sha256 }}`
+
+            Source: https://github.com/WorkDii/powerpcu_desk/tree/${{ github.ref_name }}
+            License: AGPL-3.0 (based on RustDesk, https://github.com/rustdesk/rustdesk)
