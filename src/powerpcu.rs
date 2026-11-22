@@ -104,13 +104,18 @@ pub(crate) fn derive_id(machine_uuid: &[u8]) -> String {
     (1_000_000_000 + u64::from_be_bytes(head) % 1_000_000_000).to_string()
 }
 
+// Config::load() fills a missing ID from the MAC address before apply() can look,
+// so "empty" never reaches us; anything outside the 10-digit range is replaced.
+// A server-assigned ID after UUID_MISMATCH is in that range and is kept.
+pub(crate) fn needs_own_id(id: &str) -> bool {
+    !matches!(id.parse::<u64>(), Ok(n) if (1_000_000_000..2_000_000_000).contains(&n))
+}
+
 pub(crate) fn is_shared_driver_command(arg: &str) -> bool {
     SHARED_DRIVER_COMMANDS.contains(&arg)
 }
 
-// APP_NAME must be set before anything touches `Config`: it names the config
-// file. The ID is seeded only when ours has none, so a server-assigned ID after
-// UUID_MISMATCH is kept.
+// APP_NAME must be set before anything touches `Config`: it names the config file.
 #[cfg(feature = "powerpcu")]
 pub(crate) fn apply() {
     *config::APP_NAME.write().unwrap() = APP_NAME.to_owned();
@@ -126,7 +131,7 @@ pub(crate) fn apply() {
         .unwrap()
         .extend(s.default_local);
     config::BUILTIN_SETTINGS.write().unwrap().extend(s.builtin);
-    if config::Config::get_id_or(String::new()).is_empty() {
+    if needs_own_id(&config::Config::get_id()) {
         config::Config::set_id(&derive_id(&hbb_common::get_uuid()));
     }
 }
@@ -204,6 +209,15 @@ mod tests {
         assert_eq!(derive_id(b"other-machine"), "1427890610");
         let id: u64 = derive_id(b"x").parse().unwrap();
         assert!((1_000_000_000..2_000_000_000).contains(&id));
+    }
+
+    #[test]
+    fn mac_derived_ids_are_replaced_but_ten_digit_ids_kept() {
+        assert!(needs_own_id("288599328"));
+        assert!(needs_own_id(""));
+        assert!(needs_own_id("DESKTOP-PC01"));
+        assert!(!needs_own_id("1427890610"));
+        assert!(!needs_own_id(&derive_id(b"any-machine")));
     }
 
     #[test]
